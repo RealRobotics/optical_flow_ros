@@ -18,10 +18,11 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.executors import SingleThreadedExecutor
 from optical_flow_ros.optical_flow_publisher import OpticalFlowPublisher
 
+
 def main(args=None):
     rclpy.init(args=args)
     try:
-        optical_flow_publisher = OpticalFlowPublisher(node_name='optical_flow')
+        optical_flow_publisher = OpticalFlowPublisher(node_name="optical_flow")
 
         executor = SingleThreadedExecutor()
         executor.add_node(optical_flow_publisher)
@@ -38,5 +39,6 @@ def main(args=None):
     finally:
         rclpy.try_shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -16,8 +16,7 @@ import sys
 import rclpy
 import numpy as np
 from typing import Optional
-from rclpy.lifecycle import Node, Publisher, State, TransitionCallbackReturn
-from rclpy.timer import Timer
+from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import qos_profile_sensor_data
 from tf2_ros import TransformBroadcaster
@@ -33,9 +32,6 @@ RES_PIX = 35
 class OpticalFlowPublisher(Node):
     def __init__(self, node_name='optical_flow'):
         super().__init__(node_name)
-        self._odom_pub: Optional[Publisher] = None
-        self._tf_broadcaster: Optional[TransformBroadcaster] = None
-        self._timer: Optional[Timer] = None
 
         # declare parameters and default values
         self.declare_parameters(
@@ -48,7 +44,9 @@ class OpticalFlowPublisher(Node):
                 ('x_init', 0.0),
                 ('y_init', 0.0),
                 ('z_height', 0.025),
-                ('board', 'paa5100'),
+                # ('board', 'paa5100'),
+                # Changed to pmw3901 as this iw what we are using.
+                ('board', 'pmw3901'),
                 ('scaler', 5),
                 ('spi_nr', 0),
                 ('spi_slot', 'front'),
@@ -56,14 +54,18 @@ class OpticalFlowPublisher(Node):
                 ('publish_tf', True),
             ]
         )
-        
+
         self._pos_x = self.get_parameter('x_init').value
         self._pos_y = self.get_parameter('y_init').value
         self._pos_z = self.get_parameter('z_height').value
         self._scaler = self.get_parameter('scaler').value
         self._dt = self.get_parameter('timer_period').value
         self._sensor = None
-        
+
+        self._odom_pub = self.create_publisher(Odometry, "odometry", 10)
+        self._tf_broadcaster = TransformBroadcaster(self)
+        self._timer = self.create_timer(self._dt, self._publish_all)
+
         self.get_logger().info('Initialized')
 
     def publish_odom(self):
@@ -73,7 +75,7 @@ class OpticalFlowPublisher(Node):
             except (RuntimeError, AttributeError):
                 dx, dy = 0.0, 0.0
 
-            fov = np.radians(FOV_DEV)
+            fov = np.radians(FOV_DEG)
             cf = self._pos_z*2*np.tan(fov/2)/(RES_PIX*self._scaler)
 
             dist_x, dist_y = 0.0, 0.0
@@ -87,7 +89,7 @@ class OpticalFlowPublisher(Node):
                 # ROS and Sensor frames are assumed to align for PMW3901 based on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
                 dist_x = cf*dx
                 dist_y = cf*dy
-            
+
             self._pos_x += dist_x
             self._pos_y += dist_y
 
@@ -116,48 +118,6 @@ class OpticalFlowPublisher(Node):
                 )
                 self._tf_broadcaster.sendTransform(tf_msg)
 
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
-        sensor_classes = {'pwm3901': PMW3901, 'paa5100': PAA5100}
-        SensorClass = sensor_classes.get(self.get_parameter('board').value)
-
-        if SensorClass is not None:
-            spi_slots = {'front': BG_CS_FRONT_BCM, 'back': BG_CS_BACK_BCM}
-            self._sensor = SensorClass(spi_port=self.get_parameter('spi_nr').value, 
-                                        spi_cs_gpio=spi_slots.get(self.get_parameter('spi_slot').value))
-            self._sensor.set_rotation(self.get_parameter('rotation').value)
-
-            if self._sensor is not None:
-                self._odom_pub = self.create_lifecycle_publisher(Odometry, 'odom', qos_profile=qos_profile_sensor_data)
-                self._tf_broadcaster = TransformBroadcaster(self)
-                self._timer = self.create_timer(self._dt, self.publish_odom)
-            
-                self.get_logger().info('Configured')
-                return TransitionCallbackReturn.SUCCESS
-            else:
-                self.get_logger().info('Configuration Failure: Invalid SPI Settings')
-                return TransitionCallbackReturn.FAILURE
-        else:
-            self.get_logger().info('Configuration Failure: Invalid Sensor')
-            return TransitionCallbackReturn.FAILURE
-
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Activated')
-        return super().on_activate(state)
-
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Deactivated')
-        return super().on_deactivate(state)
-
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
-        self.terminate()
-        self.get_logger().info('Clean Up Successful')
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
-        self.terminate()
-        self.get_logger().info('Shut Down Successful')
-        return TransitionCallbackReturn.SUCCESS
-        
     def terminate(self):
         if self._timer is not None:
             self._timer.cancel()
@@ -170,7 +130,7 @@ class OpticalFlowPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = OpticalFlowPublisher()
-    
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
