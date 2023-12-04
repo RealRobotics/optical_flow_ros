@@ -55,10 +55,7 @@ class OpticalFlowPublisher(Node):
                 ("z_height", 0.025),
                 # ('board', 'paa5100'),
                 # Changed to pmw3901 as this is what we are using.
-                ("board", "pmw3901"),
                 ("scaler", 5),
-                ("spi_nr", 0),
-                ("spi_slot", "front"),
                 # Rotation of sensor in degrees: 0, 90, 180, 270.
                 ("rotation", 0),
                 ("publish_tf", True),
@@ -73,11 +70,7 @@ class OpticalFlowPublisher(Node):
 
         # Setup sensor.
         # HACK to get it working.  Will not cope with PAA5100.
-        spi_slots = {"front": BG_CS_FRONT_BCM, "back": BG_CS_BACK_BCM}
-        self._sensor = PMW3901(
-            spi_port=self.get_parameter("spi_nr").value,
-            spi_cs_gpio=spi_slots.get(self.get_parameter("spi_slot").value),
-        )
+        self._sensor = PMW3901(spi_port=0, spi_cs_gpio=BG_CS_FRONT_BCM)
         self._sensor.set_rotation(self.get_parameter("rotation").value)
 
         # Create ROS publishers and timers.
