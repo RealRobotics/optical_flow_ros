@@ -15,10 +15,8 @@
 import sys
 import rclpy
 import numpy as np
-from typing import Optional
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
-from rclpy.qos import qos_profile_sensor_data
 from tf2_ros import TransformBroadcaster
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
@@ -28,12 +26,10 @@ from geometry_msgs.msg import (
     Pose,
     Twist,
     Point,
-    Quaternion,
     Vector3,
     TransformStamped,
     Transform,
 )
-from pmw3901 import PMW3901, PAA5100, BG_CS_FRONT_BCM, BG_CS_BACK_BCM
 
 # hard-coded values for PAA5100 and PMW3901 (to be verified for PMW3901)
 FOV_DEG = 42.0
@@ -99,7 +95,8 @@ class OpticalFlowPublisher(Node):
                 dist_x = -1 * cf * dy
                 dist_y = cf * dx
             elif self.get_parameter("board").value == "pmw3901":
-                # ROS and Sensor frames are assumed to align for PMW3901 based on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
+                # ROS and Sensor frames are assumed to align for PMW3901 based
+                # on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
                 dist_x = cf * dx
                 dist_y = cf * dy
 

@@ -18,18 +18,19 @@ from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
-def generate_launch_description():
 
+def generate_launch_description():
     optical_flow_params_path = PathJoinSubstitution(
-        [FindPackageShare("optical_flow_ros"), "config", "sensor_params.yaml"])
+        [FindPackageShare("optical_flow_ros"), "config", "sensor_params.yaml"]
+    )
 
     optical_flow_node = Node(
-        package='optical_flow_ros',
-        executable='optical_flow_node',
-        name='optical_flow',
+        package="optical_flow_ros",
+        executable="optical_flow_node",
+        name="optical_flow",
         # Do not change, else config params and remappings need to be updated
-        namespace='',
-        output='screen',
+        namespace="",
+        output="screen",
         parameters=[optical_flow_params_path],
         # remappings=[('odom', 'flow_odom')]
     )
