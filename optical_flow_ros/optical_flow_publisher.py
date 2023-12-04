@@ -59,6 +59,7 @@ class OpticalFlowPublisher(Node):
                 ("scaler", 5),
                 ("spi_nr", 0),
                 ("spi_slot", "front"),
+                # Rotation of sensor in degrees: 0, 90, 180, 270.
                 ("rotation", 0),
                 ("publish_tf", True),
             ],
@@ -71,8 +72,8 @@ class OpticalFlowPublisher(Node):
         self._dt = self.get_parameter("timer_period").value
 
         # Setup sensor.
-        sensor_classes = {"pwm3901": PMW3901, "paa5100": PAA5100}
-        SensorClass = sensor_classes.get(self.get_parameter("board").value)
+        # HACK to get it working.  Will not cope with PAA5100.
+        SensorClass = PMW3901
         spi_slots = {"front": BG_CS_FRONT_BCM, "back": BG_CS_BACK_BCM}
         self._sensor = SensorClass(
             spi_port=self.get_parameter("spi_nr").value,
