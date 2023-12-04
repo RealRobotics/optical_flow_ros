@@ -22,7 +22,7 @@ from optical_flow_ros.optical_flow_publisher import OpticalFlowPublisher
 def main(args=None):
     rclpy.init(args=args)
     try:
-        optical_flow_publisher = OpticalFlowPublisher(node_name="optical_flow")
+        optical_flow_publisher = OpticalFlowPublisher(node_name="optical_flow_node")
 
         executor = SingleThreadedExecutor()
         executor.add_node(optical_flow_publisher)

@@ -27,7 +27,7 @@ def generate_launch_description():
     optical_flow_node = Node(
         package="optical_flow_ros",
         executable="optical_flow_node",
-        name="optical_flow",
+        # name="optical_flow",
         # Do not change, else config params and remappings need to be updated
         namespace="",
         output="screen",
