@@ -71,7 +71,7 @@ class OpticalFlowPublisher(Node):
 
         self._odom_pub = self.create_publisher(Odometry, "odometry", 10)
         self._tf_broadcaster = TransformBroadcaster(self)
-        self._timer = self.create_timer(self._dt, self._publish_all)
+        self._timer = self.create_timer(self._dt, self._publish_odom)
 
         self.get_logger().info("Initialized")
 
