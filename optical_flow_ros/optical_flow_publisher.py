@@ -92,17 +92,10 @@ class OpticalFlowPublisher(Node):
         cf = self._pos_z * 2 * np.tan(fov / 2) / (RES_PIX * self._scaler)
 
         dist_x, dist_y = 0.0, 0.0
-        if self.get_parameter("board").value == "paa5100":
-            # Convert data from sensor frame to ROS frame for PAA5100
-            # ROS frame: front/back = +x/-x, left/right = +y/-y
-            # Sensor frame: front/back = -y/+y, left/right = +x/-x
-            dist_x = -1 * cf * dy
-            dist_y = cf * dx
-        elif self.get_parameter("board").value == "pmw3901":
-            # ROS and Sensor frames are assumed to align for PMW3901 based
-            # on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
-            dist_x = cf * dx
-            dist_y = cf * dy
+        # ROS and Sensor frames are assumed to align for PMW3901 based
+        # on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
+        dist_x = cf * dx
+        dist_y = cf * dy
 
         self._pos_x += dist_x
         self._pos_y += dist_y
