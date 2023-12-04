@@ -73,9 +73,8 @@ class OpticalFlowPublisher(Node):
 
         # Setup sensor.
         # HACK to get it working.  Will not cope with PAA5100.
-        SensorClass = PMW3901
         spi_slots = {"front": BG_CS_FRONT_BCM, "back": BG_CS_BACK_BCM}
-        self._sensor = SensorClass(
+        self._sensor = PMW3901(
             spi_port=self.get_parameter("spi_nr").value,
             spi_cs_gpio=spi_slots.get(self.get_parameter("spi_slot").value),
         )
