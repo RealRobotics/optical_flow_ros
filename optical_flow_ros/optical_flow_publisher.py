@@ -75,7 +75,7 @@ class OpticalFlowPublisher(Node):
 
         self.get_logger().info("Initialized")
 
-    def publish_odom(self):
+    def _publish_odom(self):
         if self._odom_pub is not None and self._odom_pub.is_activated:
             try:
                 dx, dy = self._sensor.get_motion(
