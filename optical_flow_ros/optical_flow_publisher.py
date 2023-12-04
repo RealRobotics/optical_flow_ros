@@ -1,3 +1,4 @@
+# Copyright 2023 University of Leeds.
 # Copyright (c) 2023 Aditya Kamath
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +31,7 @@ from geometry_msgs.msg import (
     TransformStamped,
     Transform,
 )
+from pmw3901 import PMW3901, PAA5100, BG_CS_FRONT_BCM, BG_CS_BACK_BCM
 
 # hard-coded values for PAA5100 and PMW3901 (to be verified for PMW3901)
 FOV_DEG = 42.0
@@ -67,79 +69,85 @@ class OpticalFlowPublisher(Node):
         self._pos_z = self.get_parameter("z_height").value
         self._scaler = self.get_parameter("scaler").value
         self._dt = self.get_parameter("timer_period").value
-        self._sensor = None
 
-        self._odom_pub = self.create_publisher(Odometry, "odometry", 10)
+        # Setup sensor.
+        sensor_classes = {"pwm3901": PMW3901, "paa5100": PAA5100}
+        SensorClass = sensor_classes.get(self.get_parameter("board").value)
+        spi_slots = {"front": BG_CS_FRONT_BCM, "back": BG_CS_BACK_BCM}
+        self._sensor = SensorClass(
+            spi_port=self.get_parameter("spi_nr").value,
+            spi_cs_gpio=spi_slots.get(self.get_parameter("spi_slot").value),
+        )
+        self._sensor.set_rotation(self.get_parameter("rotation").value)
+
+        # Create ROS publishers and timers.
+        self._publisher = self.create_publisher(Odometry, "odometry", 10)
         self._tf_broadcaster = TransformBroadcaster(self)
         self._timer = self.create_timer(self._dt, self._publish_odom)
 
         self.get_logger().info("Initialized")
 
     def _publish_odom(self):
-        if self._odom_pub is not None and self._odom_pub.is_activated:
-            try:
-                dx, dy = self._sensor.get_motion(
-                    timeout=self.get_parameter("sensor_timeout").value
-                )
-            except (RuntimeError, AttributeError):
-                dx, dy = 0.0, 0.0
-
-            fov = np.radians(FOV_DEG)
-            cf = self._pos_z * 2 * np.tan(fov / 2) / (RES_PIX * self._scaler)
-
-            dist_x, dist_y = 0.0, 0.0
-            if self.get_parameter("board").value == "paa5100":
-                # Convert data from sensor frame to ROS frame for PAA5100
-                # ROS frame: front/back = +x/-x, left/right = +y/-y
-                # Sensor frame: front/back = -y/+y, left/right = +x/-x
-                dist_x = -1 * cf * dy
-                dist_y = cf * dx
-            elif self.get_parameter("board").value == "pmw3901":
-                # ROS and Sensor frames are assumed to align for PMW3901 based
-                # on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
-                dist_x = cf * dx
-                dist_y = cf * dy
-
-            self._pos_x += dist_x
-            self._pos_y += dist_y
-
-            odom_msg = Odometry(
-                header=Header(
-                    stamp=self.get_clock().now().to_msg(),
-                    frame_id=self.get_parameter("parent_frame").value,
-                ),
-                child_frame_id=self.get_parameter("child_frame").value,
-                pose=PoseWithCovariance(
-                    pose=Pose(
-                        position=Point(x=self._pos_x, y=self._pos_y, z=self._pos_z)
-                    )
-                ),
-                twist=TwistWithCovariance(
-                    twist=Twist(
-                        linear=Vector3(x=dist_x / self._dt, y=dist_y / self._dt, z=0.0)
-                    )
-                ),
+        try:
+            dx, dy = self._sensor.get_motion(
+                timeout=self.get_parameter("sensor_timeout").value
             )
-            self._odom_pub.publish(odom_msg)
+        except (RuntimeError, AttributeError):
+            dx, dy = 0.0, 0.0
 
-            if self.get_parameter("publish_tf").value is True:
-                tf_msg = TransformStamped(
-                    header=odom_msg.header,
-                    child_frame_id=odom_msg.child_frame_id,
-                    transform=Transform(
-                        translation=Vector3(
-                            x=odom_msg.pose.pose.position.x,
-                            y=odom_msg.pose.pose.position.y,
-                            z=odom_msg.pose.pose.position.z,
-                        )
-                    ),
+        fov = np.radians(FOV_DEG)
+        cf = self._pos_z * 2 * np.tan(fov / 2) / (RES_PIX * self._scaler)
+
+        dist_x, dist_y = 0.0, 0.0
+        if self.get_parameter("board").value == "paa5100":
+            # Convert data from sensor frame to ROS frame for PAA5100
+            # ROS frame: front/back = +x/-x, left/right = +y/-y
+            # Sensor frame: front/back = -y/+y, left/right = +x/-x
+            dist_x = -1 * cf * dy
+            dist_y = cf * dx
+        elif self.get_parameter("board").value == "pmw3901":
+            # ROS and Sensor frames are assumed to align for PMW3901 based
+            # on https://docs.px4.io/main/en/sensor/pmw3901.html#mounting-orientation
+            dist_x = cf * dx
+            dist_y = cf * dy
+
+        self._pos_x += dist_x
+        self._pos_y += dist_y
+
+        odom_msg = Odometry(
+            header=Header(
+                stamp=self.get_clock().now().to_msg(),
+                frame_id=self.get_parameter("parent_frame").value,
+            ),
+            child_frame_id=self.get_parameter("child_frame").value,
+            pose=PoseWithCovariance(
+                pose=Pose(position=Point(x=self._pos_x, y=self._pos_y, z=self._pos_z))
+            ),
+            twist=TwistWithCovariance(
+                twist=Twist(
+                    linear=Vector3(x=dist_x / self._dt, y=dist_y / self._dt, z=0.0)
                 )
-                self._tf_broadcaster.sendTransform(tf_msg)
+            ),
+        )
+        self._publisher.publish(odom_msg)
+
+        tf_msg = TransformStamped(
+            header=odom_msg.header,
+            child_frame_id=odom_msg.child_frame_id,
+            transform=Transform(
+                translation=Vector3(
+                    x=odom_msg.pose.pose.position.x,
+                    y=odom_msg.pose.pose.position.y,
+                    z=odom_msg.pose.pose.position.z,
+                )
+            ),
+        )
+        self._tf_broadcaster.sendTransform(tf_msg)
 
     def terminate(self):
         self._timer.cancel()
         self.destroy_timer(self._timer)
-        self.destroy_publisher(self._odom_pub)
+        self.destroy_publisher(self._publisher)
         del self._tf_broadcaster
 
 
