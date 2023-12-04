@@ -52,7 +52,7 @@ class OpticalFlowPublisher(Node):
                 ("y_init", 0.0),
                 ("z_height", 0.025),
                 # ('board', 'paa5100'),
-                # Changed to pmw3901 as this iw what we are using.
+                # Changed to pmw3901 as this is what we are using.
                 ("board", "pmw3901"),
                 ("scaler", 5),
                 ("spi_nr", 0),
@@ -137,13 +137,10 @@ class OpticalFlowPublisher(Node):
                 self._tf_broadcaster.sendTransform(tf_msg)
 
     def terminate(self):
-        if self._timer is not None:
-            self._timer.cancel()
-            self.destroy_timer(self._timer)
-        if self._odom_pub is not None:
-            self.destroy_publisher(self._odom_pub)
-        if self._tf_broadcaster is not None:
-            del self._tf_broadcaster
+        self._timer.cancel()
+        self.destroy_timer(self._timer)
+        self.destroy_publisher(self._odom_pub)
+        del self._tf_broadcaster
 
 
 def main(args=None):
